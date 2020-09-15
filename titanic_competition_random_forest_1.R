@@ -5,6 +5,7 @@
 library(tidyverse) # metapackage of all tidyverse packages
 library(randomForest)
 library(caret)
+library(party)
 
 # Input data files are available in the read-only "../input/" directory
 # For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
@@ -76,7 +77,7 @@ X <- train_set %>% select(features)
 
 set.seed(1)
 
-fit <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
+fit_1 <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
                       Family_Size,
                     data=train_set, 
                     importance=TRUE, 
@@ -84,6 +85,34 @@ fit <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
 
 #varImpPlot(fit)
 
-Prediction <- predict(fit, test_set)
+#this is the first set of predictions using random forest
+Prediction1 <- predict(fit_1, test_set)
 
-submit <- data.frame(PassengerId = test_set$PassengerId, Survived = Prediction)
+set.seed(1)
+
+fit_2 <- cforest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
+                 Family_Size,
+               data = train_set, 
+               controls=cforest_unbiased(ntree=2000, mtry=3))
+
+#this is the second set of predictions using random forest. different library
+prediction_2 <- predict(object = fit_2, newdata = test_set, OOB=TRUE, type = "response")
+
+
+set.seed(1)
+model_3 <- glm( Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size , data = train_set, family = binomial)
+summary(model_3)$coef
+
+probabilities <- model_3 %>% predict(test_set, type = "response")
+head(probabilities)
+
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+head(predicted.classes)
+
+
+submit <- as.data.frame(predicted.classes)
+colnames(submit) <- c('PassengerId')
+
+OutputCSV <- as.data.frame(cbind(test_set$PassengerId, submit$PassengerId))
+colnames(OutputCSV)<- c('PassengerId', 'Survived')
+write.csv(OutputCSV,'submission3.csv', row.names = FALSE)

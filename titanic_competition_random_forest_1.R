@@ -6,6 +6,12 @@ library(tidyverse) # metapackage of all tidyverse packages
 library(randomForest)
 library(caret)
 library(party)
+library(ggplot2)
+library(dplyr)
+library(GGally)
+library(rpart)
+library(rpart.plot)
+
 
 # Input data files are available in the read-only "../input/" directory
 # For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
@@ -110,9 +116,13 @@ predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
 head(predicted.classes)
 
 
-submit <- as.data.frame(predicted.classes)
-colnames(submit) <- c('PassengerId')
 
-OutputCSV <- as.data.frame(cbind(test_set$PassengerId, submit$PassengerId))
-colnames(OutputCSV)<- c('PassengerId', 'Survived')
-write.csv(OutputCSV,'submission3.csv', row.names = FALSE)
+model_dt<- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size ,data=train_set, method="class")
+rpart.plot(model_dt)
+
+
+pred_test_eval <- predict(model_dt, test_set, type = "class")
+
+submit <- data.frame(PassengerId = test_set$PassengerId, Survived = pred_test_eval)
+
+write.csv(submit,'submission5.csv', row.names = FALSE)

@@ -43,6 +43,7 @@ length(unique(train_set$PassengerId)) == nrow(train_set)
 
 train_set_count <- nrow(train_set)
 
+
 #are there missing ages?
 avg_age_train <- train_set %>% group_by(Pclass, Sex) %>% summarize(avg_age = mean(Age,  na.rm = TRUE))  %>% as.data.frame()
 avg_age_test <- test_set %>% group_by(Pclass, Sex) %>% summarize(avg_age = mean(Age,  na.rm = TRUE))  %>% as.data.frame()
@@ -59,8 +60,11 @@ train_set <- inner_join(train_set, avg_fare_pclass_train, by = "Pclass")
 test_set <- inner_join(test_set, avg_fare_pclass_test, by = "Pclass")
 
 #update Age is it's NA based on AVG age for that PClass and Sex
-train_set <- train_set %>% mutate(Age = ifelse(is.na(Age) , avg_age, Age))
-test_set <- test_set %>% mutate(Age = ifelse(is.na(Age) , avg_age, Age))
+train_set <- train_set %>% mutate(Age = ifelse(is.na(Age) , avg_age, Age)) %>% mutate(Child = ifelse(Age < 18, 1, 0))
+test_set <- test_set %>% mutate(Age = ifelse(is.na(Age) , avg_age, Age)) %>% mutate(Child = ifelse(Age < 18, 1, 0))
+
+
+
 
 #update Fare is it's NA based on AVG age for that PClass and Sex
 train_set <- train_set %>% mutate(Fare = ifelse(Fare == 0 | is.na(Fare) , avg_fare, Fare))
@@ -83,7 +87,7 @@ X <- train_set %>% select(features)
 
 set.seed(1)
 
-fit_1 <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
+fit_1 <- randomForest(Survived ~ Child + Pclass + Sex + Age + SibSp + Parch + Fare +
                       Family_Size,
                     data=train_set, 
                     importance=TRUE, 
@@ -92,11 +96,13 @@ fit_1 <- randomForest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
 #varImpPlot(fit)
 
 #this is the first set of predictions using random forest
-Prediction1 <- predict(fit_1, test_set)
+prediction_1 <- predict(fit_1, test_set)
 
-set.seed(1)
+#
+set.seed(450)
 
-fit_2 <- cforest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
+
+fit_2 <- cforest(Survived ~ Child + Pclass + Sex + Age + SibSp + Parch + Fare +
                  Family_Size,
                data = train_set, 
                controls=cforest_unbiased(ntree=2000, mtry=3))
@@ -105,24 +111,24 @@ fit_2 <- cforest(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +
 prediction_2 <- predict(object = fit_2, newdata = test_set, OOB=TRUE, type = "response")
 
 
-set.seed(1)
-model_3 <- glm( Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size , data = train_set, family = binomial)
-summary(model_3)$coef
+#set.seed(1)
+#model_3 <- glm( Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size + Child , data = train_set, family = binomial)
+#summary(model_3)$coef
 
-probabilities <- model_3 %>% predict(test_set, type = "response")
-head(probabilities)
+#probabilities <- model_3 %>% predict(test_set, type = "response")
+#head(probabilities)
 
-predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
-head(predicted.classes)
-
-
-
-model_dt<- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size ,data=train_set, method="class")
-rpart.plot(model_dt)
+#predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+#head(predicted.classes)
 
 
-pred_test_eval <- predict(model_dt, test_set, type = "class")
 
-submit <- data.frame(PassengerId = test_set$PassengerId, Survived = pred_test_eval)
+#model_dt<- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size  + Child,data=train_set, method="class")
+#rpart.plot(model_dt)
 
-write.csv(submit,'submission5.csv', row.names = FALSE)
+
+#pred_test_eval <- predict(model_dt, test_set, type = "class")
+
+submit <- data.frame(PassengerId = test_set$PassengerId, Survived = prediction_2)
+
+write.csv(submit,'submission_l_1.csv', row.names = FALSE)

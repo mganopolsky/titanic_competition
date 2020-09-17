@@ -21,7 +21,9 @@ dir_path <- "../input/titanic/"
 # You can write up to 5GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
 # You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
 
-train_set <- read.csv(paste(dir_path, "train.csv", sep=""))
+url <- paste(dir_path, "train.csv", sep="")
+
+train_set <- read.csv(url)
 #head(train_set)
 test_set <- read.csv(paste(dir_path, "test.csv", sep=""))
 #head(test_set)
@@ -29,6 +31,15 @@ test_set <- read.csv(paste(dir_path, "test.csv", sep=""))
 train_set <- train_set %>% mutate_at( vars(Sex), as.factor) %>% mutate_at(vars(Survived), as.factor)
 test_set <- test_set %>% mutate_at( vars(Sex), as.factor) 
 
+
+embarked_empty <- which(train_set$Embarked == "")
+train_set$Embarked[embarked_empty] <- "S"
+
+embarked_empty <- which(test_set$Embarked == "")
+test_set$Embarked[embarked_empty] <- "S"
+
+train_set <- train_set %>% mutate_at( vars(Embarked), as.factor) 
+test_set <- test_set %>% mutate_at( vars(Embarked), as.factor) 
 
 women <- train_set %>% filter(Sex == "female")
 men <- train_set %>% filter(Sex == "male")
@@ -88,7 +99,7 @@ X <- train_set %>% select(features)
 set.seed(1)
 
 fit_1 <- randomForest(Survived ~ Child + Pclass + Sex + Age + SibSp + Parch + Fare +
-                      Family_Size,
+                      Family_Size + Embarked,
                     data=train_set, 
                     importance=TRUE, 
                     ntree=2000)
@@ -103,7 +114,7 @@ set.seed(450)
 
 
 fit_2 <- cforest(Survived ~ Child + Pclass + Sex + Age + SibSp + Parch + Fare +
-                 Family_Size,
+                 Family_Size + Embarked,
                data = train_set, 
                controls=cforest_unbiased(ntree=2000, mtry=3))
 
@@ -111,24 +122,22 @@ fit_2 <- cforest(Survived ~ Child + Pclass + Sex + Age + SibSp + Parch + Fare +
 prediction_2 <- predict(object = fit_2, newdata = test_set, OOB=TRUE, type = "response")
 
 
-#set.seed(1)
-#model_3 <- glm( Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size + Child , data = train_set, family = binomial)
-#summary(model_3)$coef
+#GLM is REALLY BAD!
+set.seed(501)
+model_3 <- glm( Survived ~ Child + Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size + Embarked, data = train_set, family = binomial)
 
-#probabilities <- model_3 %>% predict(test_set, type = "response")
-#head(probabilities)
-
-#predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
-#head(predicted.classes)
+probabilities <- model_3 %>% predict(test_set, type = "response")
+prediction_3 <- ifelse(probabilities > 0.5, 1, 0)
 
 
+set.seed(501)
+model_dt<- rpart(Survived ~ Child + Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size + Embarked,
+                 data=train_set, method="class")
+rpart.plot(model_dt)
 
-#model_dt<- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare +Family_Size  + Child,data=train_set, method="class")
-#rpart.plot(model_dt)
 
+prediction_4 <- predict(model_dt, test_set, type = "class")
 
-#pred_test_eval <- predict(model_dt, test_set, type = "class")
+submit <- data.frame(PassengerId = test_set$PassengerId, Survived = prediction_4)
 
-submit <- data.frame(PassengerId = test_set$PassengerId, Survived = prediction_2)
-
-write.csv(submit,'submission_l_1.csv', row.names = FALSE)
+write.csv(submit,'sub_l_14.csv', row.names = FALSE)
